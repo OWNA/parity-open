@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PARITY desk</title>
+    <meta name="description" content="Open PARITY — live Bitcoin desk" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #07080a;
+        --panel: #0e1116;
+        --elev: #151a22;
+        --line: #1c2330;
+        --fg: #e8edf5;
+        --muted: #8b95a8;
+        --orange: #f7931a;
+        --long: #3dd68c;
+        --short: #f6465d;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg);
+        font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; }
+      .wrap { max-width: 420px; margin: 0 auto; padding: 28px 18px 48px; }
+      .brand { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+        letter-spacing: 0.28em; color: var(--orange); }
+      h1 { font-size: 28px; margin: 8px 0 4px; letter-spacing: -0.03em; }
+      .sub { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+      .open {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 52px; width: 100%; border-radius: 12px;
+        background: var(--orange); color: #07080a; font-weight: 600;
+        font-size: 16px; text-decoration: none;
+      }
+      .open:active { filter: brightness(1.08); }
+      .ghost {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 44px; margin-top: 10px; border-radius: 12px;
+        border: 1px solid var(--line); color: var(--fg); text-decoration: none; font-size: 14px;
+      }
+      .panel {
+        margin-top: 22px; background: var(--panel); border: 1px solid var(--line);
+        border-radius: 14px; padding: 16px 16px 14px;
+      }
+      .label { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+      .px { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 32px;
+        font-variant-numeric: tabular-nums; margin: 4px 0 0; }
+      .chg { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; margin-top: 4px; }
+      .long { color: var(--long); }
+      .short { color: var(--short); }
+      .row { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px;
+        font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+      .verdict {
+        margin-top: 14px; padding: 12px; border-radius: 10px; background: var(--elev);
+        font-size: 13px; line-height: 1.45; color: var(--muted);
+      }
+      .verdict strong { color: var(--fg); font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="brand">PARITY</div>
+      <h1>BTC desk</h1>
+      <p class="sub">Public dash. Full tape, book, and radio stay in the Grok app.</p>
+      <a class="ghost" href="https://github.com/OWNA/parity-desk">Source on GitHub</a>
+      <div class="panel">
+        <div class="label">BTC-USDT</div>
+        <div class="px" id="px">—</div>
+        <div class="chg" id="chg">fetching</div>
+        <div class="row">
+          <span id="poly">15m —</span>
+          <span>NO TRADE</span>
+        </div>
+        <div class="verdict">
+          <strong>Walk-forward: sit.</strong> 6m fade/follow/EMA/RSI lost after 4 bp.
+          Funding spread does not clear 19 bp to cross books.
+        </div>
+      </div>
+    </div>
+    <script>
+      async function tick() {
+        try {
+          const r = await fetch("https://api.coinbase.com/v2/prices/BTC-USD/spot");
+          const j = await r.json();
+          const px = Number(j.data && j.data.amount);
+          if (px) document.getElementById("px").textContent = px.toLocaleString("en-US", { maximumFractionDigits: 2 });
+        } catch {}
+        try {
+          const r = await fetch("https://api.exchange.coinbase.com/products/BTC-USD/stats");
+          const j = await r.json();
+          const last = Number(j.last), open = Number(j.open);
+          if (last && open) {
+            const chg = ((last - open) / open) * 100;
+            const el = document.getElementById("chg");
+            el.textContent = (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%  24h";
+            el.className = "chg " + (chg >= 0 ? "long" : "short");
+          }
+        } catch {}
+        try {
+          const slot = Math.floor(Date.now() / 1000 / 900) * 900;
+          const r = await fetch("https://gamma-api.polymarket.com/events?slug=btc-updown-15m-" + slot);
+          const ev = (await r.json())[0];
+          const m = ev && ev.markets && ev.markets[0];
+          const prices = m && JSON.parse(m.outcomePrices || "[]");
+          if (prices && prices[0]) {
+            document.getElementById("poly").textContent =
+              "15m Up " + (Number(prices[0]) * 100).toFixed(0) + "%";
+          }
+        } catch {}
+      }
+      tick();
+      setInterval(tick, 15000);
+    </script>
+  </body>
+</html>
